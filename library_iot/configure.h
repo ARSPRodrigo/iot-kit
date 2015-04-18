@@ -2,3 +2,4 @@
 
 // set the # of the application to which the GSM module is to initialte the USSD session.
 char application_code[] = "#132#";
+long main_loop_delay = 60000;
