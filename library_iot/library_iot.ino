@@ -135,7 +135,8 @@ void execute_command(){
      // do nothing
   }
   else if ( extracted_command=="Cmd" || extracted_command=="CmdL") {
-      Serial.println("Command recieved");
+      Serial.println(received_command);
+      Serial.println("Command recieved");  
       extract_and_execute_instructions_new(getValue(received_command,':',1));
       
      // do nothing
@@ -145,24 +146,28 @@ void execute_command(){
   } 
 }
 
-
 void extract_and_execute_instructions_new(String instruction){
-    Serial.println("instructions");       //'print d1;'
-    String current_command =  getValue(getValue(instruction,'\'',1),';',0) ;      //getValue(instruction,'\'',1);
+    Serial.println("instructions");       
+    String current_command =  getValue(getValue(instruction,'\'',1),';',0) ;      
 
     String command_action = getValue(current_command,' ',0);
     String command_pin = getValue(current_command,' ',1);
 
     
     if (command_action=="print"){
-      int x = read_input_pin(String(command_pin[1]).toInt(),(String)command_pin[0]);
       Serial.println("Read the sensor value: ");
-      Serial.println(x);
-      if (x==1){
-         //char* y =  strcat("NtfyL:'", command_pin);         // NtfyL:'d1=1.7' 
-         ussd_notification_data = "NtfyL:'d1=1.7' " ;}
-      else if (x==0){
-         ussd_notification_data = "0";}
+      int x = read_input_pin(String(command_pin[1]).toInt(),(String)command_pin[0]);
+      String r1 = "NtfyL:'" ;                     // r1 temporary string
+      r1.concat(command_pin);
+      r1.concat("=");
+      r1.concat(String(x));
+      r1.concat("'");
+
+      char charBuf[50];                           // charBuf temporary char buffer
+      r1.toCharArray(charBuf,50);
+      ussd_notification_data = charBuf;
+
+      Serial.println(ussd_notification_data);
       send_notification();
     }
 } 
