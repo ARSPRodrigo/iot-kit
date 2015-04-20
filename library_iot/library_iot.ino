@@ -35,9 +35,27 @@ void loop() {
   execute_command();
   Serial.println("done");
   ussd_acc.endSession();
+  
+  //// for demonstration ////
+//      check_coffie_machine(5);  // when 5th pin is connected to the sensor input(digital)
+//      delay (60000);
+  
   delay (loop_delay);
+ 
 }
 
+
+void check_coffie_machine(int pin){  
+  pinMode(pin, INPUT);
+  int x = digitalRead(pin);
+  Serial.println("coffie");
+  if (x==1){
+    Serial.println("no coffie");
+    ussd_notification_data = "1";
+    send_notification();
+    ussd_acc.endSession();
+  }
+}
 
 
 
@@ -66,9 +84,12 @@ void start_ussd_session(int x){
 
 //
 void send_notification(){
+  Serial.println("Sending a ussd response");
+  Serial.println(ussd_notification_data);
   start_ussd_session(1);  // since a notification
   get_ussd_response();  
   send_ussd_response(ussd_notification_data);
+  Serial.println("USSD response sent");
 }
 
 void get_ussd_response(){
@@ -114,7 +135,41 @@ void execute_command(){
 void extract_and_execute_instructions(String instruction){
      Serial.println("instructions");
      Serial.println(instruction);
+     
+     //instruction = "run:set-10-1";
+     instruction = "run:get-10";
+     
+     String instruction_status = getValue(instruction,':',0); 
+     String instruction_content = getValue(instruction,':',1);
+     if (instruction_status == "error"){
+       Serial.println("An error has occured");
+       Serial.println(instruction_content);
+     }
+     else if (instruction_status == "run"){
+       Serial.println(instruction_content);
+       
+       if (getValue(instruction_content,'-',0) == "get"){
+           int pin = getValue(instruction_content,'-',1).toInt();
+           pinMode(pin, INPUT);
+           int x = digitalRead(pin);
+           if (x==1){
+           ussd_notification_data = "1";}
+           else if (x==0){
+           ussd_notification_data = "0";}
+           Serial.println("ussd_notification_data is :");
+           Serial.println(ussd_notification_data);
+           send_notification();
+       }
+       else if (getValue(instruction_content,'-',0) == "set"){
+           int pin = getValue(instruction_content,'-',1).toInt();
+           int value = getValue(instruction_content,'-',2).toInt();
+           pinMode(pin, OUTPUT);
+           digitalWrite(pin, value);
+       }
+       
+     } 
 }
+
 
 void set_pins(String Pins, uint8_t Type){
   int x = 0;
