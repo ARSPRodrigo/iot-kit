@@ -36,11 +36,11 @@ void loop() {
   Serial.println("done");
   ussd_acc.endSession();
   
-  //// for demonstration ////
+//// for demonstration ////
 //      check_coffie_machine(5);  // when 5th pin is connected to the sensor input(digital)
 //      delay (60000);
   
-  delay (loop_delay);
+  delay (60000);
  
 }
 
@@ -84,12 +84,21 @@ void start_ussd_session(int x){
 
 //
 void send_notification(){
+  
   Serial.println("Sending a ussd response");
   Serial.println(ussd_notification_data);
   start_ussd_session(1);  // since a notification
   get_ussd_response();  
-  send_ussd_response(ussd_notification_data);
-  Serial.println("USSD response sent");
+  received_command = "Cont"; // for test purposes only
+  if (received_command == "Cont") {
+     Serial.println("Sending the collected data");
+     send_ussd_response(ussd_notification_data);
+     get_ussd_response();  
+     received_command = "Fin"; // for test purposes only
+     if (received_command == "Fin") {
+       Serial.println("End of the session");
+     }
+  }
 }
 
 void get_ussd_response(){
@@ -113,63 +122,50 @@ void end_ussd_session(){
 
 void execute_command(){
   
+  received_command = "CmdL:'print d5;'";
+  String extracted_command =getValue(received_command,':',0);
+  Serial.println("Executing the command");
+  Serial.println(extracted_command);
+  
   if (received_command=="poll") {
      ussd_acc.endSession();
   }
-  else if (received_command=="continue") {
-     ussd_response = "2";
-     ussd_acc.respond(ussd_response);
-     ussd_response = "";
-     get_ussd_response();
+  else if (received_command=="Fin") {
+      Serial.println("No command received. Nothing to do.");
+     // do nothing
+  }
+  else if ( extracted_command=="Cmd" || extracted_command=="CmdL") {
+      Serial.println("Command recieved");
+      extract_and_execute_instructions_new(getValue(received_command,':',1));
+      
+     // do nothing
   }
   else if (received_command=="error") {
      ussd_acc.endSession();
-  }
-  else{
-     ussd_acc.endSession();
-     extract_and_execute_instructions(received_command);
-  }  
+  } 
 }
 
 
-void extract_and_execute_instructions(String instruction){
-     Serial.println("instructions");
-     Serial.println(instruction);
-     
-     //instruction = "run:set-10-1";
-     instruction = "run:get-10";
-     
-     String instruction_status = getValue(instruction,':',0); 
-     String instruction_content = getValue(instruction,':',1);
-     if (instruction_status == "error"){
-       Serial.println("An error has occured");
-       Serial.println(instruction_content);
-     }
-     else if (instruction_status == "run"){
-       Serial.println(instruction_content);
-       
-       if (getValue(instruction_content,'-',0) == "get"){
-           int pin = getValue(instruction_content,'-',1).toInt();
-           pinMode(pin, INPUT);
-           int x = digitalRead(pin);
-           if (x==1){
-           ussd_notification_data = "1";}
-           else if (x==0){
-           ussd_notification_data = "0";}
-           Serial.println("ussd_notification_data is :");
-           Serial.println(ussd_notification_data);
-           send_notification();
-       }
-       else if (getValue(instruction_content,'-',0) == "set"){
-           int pin = getValue(instruction_content,'-',1).toInt();
-           int value = getValue(instruction_content,'-',2).toInt();
-           pinMode(pin, OUTPUT);
-           digitalWrite(pin, value);
-       }
-       
-     } 
-}
+void extract_and_execute_instructions_new(String instruction){
+    Serial.println("instructions");       //'print d1;'
+    String current_command =  getValue(getValue(instruction,'\'',1),';',0) ;      //getValue(instruction,'\'',1);
 
+    String command_action = getValue(current_command,' ',0);
+    String command_pin = getValue(current_command,' ',1);
+
+    
+    if (command_action=="print"){
+      int x = read_input_pin(String(command_pin[1]).toInt(),(String)command_pin[0]);
+      Serial.println("Read the sensor value: ");
+      Serial.println(x);
+      if (x==1){
+         //char* y =  strcat("NtfyL:'", command_pin);         // NtfyL:'d1=1.7' 
+         ussd_notification_data = "NtfyL:'d1=1.7' " ;}
+      else if (x==0){
+         ussd_notification_data = "0";}
+      send_notification();
+    }
+} 
 
 void set_pins(String Pins, uint8_t Type){
   int x = 0;
@@ -188,7 +184,8 @@ void set_pins(String Pins, uint8_t Type){
 
 int read_input_pin(int pin, String read_type){
   Serial.println("read function");
-  if (read_type == "dr")
+  Serial.println(pin);
+  if (read_type == "d")
      return digitalRead(pin); 
   else
      return analogRead(pin);   
