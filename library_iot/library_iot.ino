@@ -30,8 +30,7 @@ void setup() {
 
 // the loop routine runs over and over again forever:
 void loop() {
-  
-  poll_command(); 
+  //poll_command(); 
   execute_command();
   Serial.println("done");
   ussd_acc.endSession();
@@ -122,7 +121,7 @@ void end_ussd_session(){
 
 void execute_command(){
   
-  received_command = "CmdL:'print d5;'";
+  received_command = "CmdL:print d5;";
   String extracted_command =getValue(received_command,':',0);
   Serial.println("Executing the command");
   Serial.println(extracted_command);
@@ -147,9 +146,10 @@ void execute_command(){
 }
 
 void extract_and_execute_instructions_new(String instruction){
-    Serial.println("instructions");       
-    String current_command =  getValue(getValue(instruction,'\'',1),';',0) ;      
-
+    Serial.println("instructions");     
+    String temp = instruction.substring(0, instruction.length() - 1);   
+    String current_command =  getValue(temp,';',0) ;
+    Serial.println(current_command);
     String command_action = getValue(current_command,' ',0);
     String command_pin = getValue(current_command,' ',1);
 
@@ -157,12 +157,11 @@ void extract_and_execute_instructions_new(String instruction){
     if (command_action=="print"){
       Serial.println("Read the sensor value: ");
       int x = read_input_pin(String(command_pin[1]).toInt(),(String)command_pin[0]);
-      String r1 = "NtfyL:'" ;                     // r1 temporary string
+      String r1 = "NtfyL:" ;                     // r1 temporary string
       r1.concat(command_pin);
       r1.concat("=");
       r1.concat(String(x));
-      r1.concat("'");
-
+      
       char charBuf[50];                           // charBuf temporary char buffer
       r1.toCharArray(charBuf,50);
       ussd_notification_data = charBuf;
