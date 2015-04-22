@@ -2,55 +2,128 @@
 #include "USSDAccess.h"
 #include "configure.h"
 
-char* ussd_code;		//	USSD Service code
-char* ussd_code_notification;   //	USSD Service code
+USSDAccess ussd_acc;
+
+char* ussd_code;		                               //	USSD Service code
+char* ussd_code_notification;                                  //	USSD Service code
+char* ussd_notification_data;
+char* ussd_reistration_data;
 char* ussd_response;
+
 char* notify_request = "Ntfy";
 char* command_request = "Cmd";
-char* register_request = "Reg";
+char* register_request = "Reg:coffie machine 01";
 
 int loop_delay;
-int max_resp_len = 175;	        //	maximum length of the USSD response
+int max_resp_len = 175;	                                       //maximum length of the USSD response
 
 String received_command = "";
 
-char* ussd_notification_data;
-char* ussd_reistration_data;
 
-String poll_temp = "";
-String notification_temp = "";
-String poll = "*0#";
-String notification = "*1#";
+// for demo only
+int ldr = 0;                                                   //analog pin to which LDR is connected
+int ldr_value = 0;                                             //variable to store LDR values
+int ussd = 0;
 
-USSDAccess ussd_acc;
-
-long count;
-
+int demo_pin;
+int demo_pin_value;
+int demo_ussd = 0;
+String demo_pin_type;
+// end of demo
 
 
 // the setup routine runs once when you press reset:
-void setup() {   
+void setup() {  
   Serial.begin(9600);
   set_loop_delay(); 
-  register_device();  
+  register_device();
+  Serial.println("End of registration");  
+  delay(10000);
+  poll_command(); 
+  
+  demo_setup();
 }
 
 
 // the loop routine runs over and over again forever:
-void loop() {
-  poll_command(); 
-  execute_command();
-  ussd_acc.endSession();
+void loop() {  
+  delay(1000); 
+  // demo();  
   
-  Serial.println(count);
-  if (count >= periodic_check_timer){
-     periodic_check(7, "d");                  // still to be developed
-     count = 0;
-  }
-  delay (main_loop_delay);
-  count  += main_loop_delay;
+  demo_loop();
 }
 
+void demo_setup(){
+  //received_command = "CmdL:print a0;";                                     //  CmdL:print d7; //  
+  String extracted_command =getValue(received_command,':',0);
+  if (extracted_command=="Cmd" || extracted_command=="CmdL") {
+      Serial.println("Command recieved");  
+      Serial.println(received_command);
+      String instruction = getValue(received_command,':',1);
+      String temp = instruction.substring(0, instruction.length() - 1);   
+      String current_command =  getValue(temp,';',0) ;
+      Serial.println(current_command);
+      String command_action = getValue(current_command,' ',0);
+      String command_pin = getValue(current_command,' ',1);
+      demo_pin = String(command_pin[1]).toInt();
+      demo_pin_type = (String)command_pin[0];
+  } 
+  
+}
+
+
+void demo_loop(){
+  if (demo_pin_type == "a")
+     demo_pin_value = analogRead(ldr);                
+  else if (demo_pin_type == "d")
+     demo_pin_value = digitalRead(ldr);                
+
+  Serial.println(ldr_value);
+  if ((demo_pin_type == "a" && demo_pin_value< 200) || (demo_pin_type == "d" && demo_pin_value== 1)){
+    if (demo_ussd ==0){
+      Serial.println("send ussd");
+      demo_ussd =1; 
+      String pin = "level=";
+      String x = "NtfyL:";
+      x.concat(pin);
+      String temp = String(demo_pin_value);               
+      x.concat(temp);
+      char charBuf[50];                              // charBuf temporary char buffer
+      x.toCharArray(charBuf,50);
+      ussd_notification_data = charBuf;     
+      Serial.println(ussd_notification_data);
+      send_notification();
+  }
+}
+else{
+ demo_ussd = 0;
+}
+}
+
+void demo(){
+ldr_value = analogRead(ldr);
+Serial.println(ldr_value);
+if (ldr_value< 200){
+  if (ussd ==0){
+    Serial.println("send ussd");
+    ussd =1; 
+    String pin = "level=";
+    String x = "NtfyL:";
+    x.concat(pin);
+    String temp = String(ldr_value);      
+    x.concat(temp);
+    char charBuf[50];                                         
+    x.toCharArray(charBuf,50);
+    ussd_notification_data = charBuf;     
+    Serial.println(ussd_notification_data);
+    send_notification();
+  }
+}
+else{
+ ussd = 0;
+}
+
+}
 
 
 void set_loop_delay(){
@@ -58,28 +131,22 @@ void set_loop_delay(){
 }
 
 void register_device(){
-  start_ussd_session(0);  // not a notification therefore
-  get_ussd_response();    
-  if (received_command == "Cont") {    
+  start_ussd_session();                                      // not a notification therefore 0
+  get_ussd_response();  
+  if (received_command == "Cont") {
+    Serial.println("Sending register request");    
     send_ussd_response(register_request);
     get_ussd_response();
-    if (received_command == "Cont") {  
-         Serial.println("Registering the device");
-         ussd_reistration_data = sim_number;
-         send_ussd_response(ussd_reistration_data);
-         get_ussd_response();  
-         received_command = "Fin";                           // for test purposes only  - comment this when in actual scenario
-         if (received_command == "Fin") {
-           Serial.println("End of the session");
-         }
-       }
-    
-  }  
+    if (received_command == "Fin") {
+      Serial.println("End of the session");
+  }
+ }  
 }
 
 //
 void poll_command(){
-  start_ussd_session(0);  // not a notification therefore
+  Serial.println("Polling..");
+  start_ussd_session();                                      // not a notification therefore 0
   get_ussd_response();    
   if (received_command == "Cont") {    
     send_ussd_response(command_request);
@@ -87,30 +154,25 @@ void poll_command(){
   }  
 }
 
-void start_ussd_session(int x){
+void start_ussd_session(){
+    ussd_code = application_code;
+    Serial.println(ussd_code);
     ussd_acc.initSession(ussd_code);
 }
 
 //
-void send_notification(){
-  
+void send_notification(){  
   Serial.println("Sending a ussd response");
   Serial.println(ussd_notification_data);
-  start_ussd_session(1);  // since a notification
+  start_ussd_session();                                        // a notification therefore 1
   get_ussd_response();  
-  received_command = "Cont";                             // for test purposes only  - comment this when in actual scenario
-  if (received_command == "Cont") {    
-    send_ussd_response(notify_request);
-    get_ussd_response();
-       if (received_command == "Cont") {  
-         Serial.println("Sending the collected data");
-         send_ussd_response(ussd_notification_data);
-         get_ussd_response();  
-         received_command = "Fin";                           // for test purposes only  - comment this when in actual scenario
+    if (received_command == "Cont") {   
+    Serial.println("Sending the notification request Ntfy");    
+    send_ussd_response(ussd_notification_data);
+         get_ussd_response();           
          if (received_command == "Fin") {
            Serial.println("End of the session");
          }
-       }
   }
 }
 
@@ -135,7 +197,7 @@ void end_ussd_session(){
 
 void execute_command(){
   
-  received_command = "CmdL:print a0;";
+  //received_command = "CmdL:print a0;";
   String extracted_command =getValue(received_command,':',0);
   Serial.println("Executing the command");
   Serial.println(extracted_command);
