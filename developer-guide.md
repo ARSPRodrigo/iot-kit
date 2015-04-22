@@ -9,8 +9,9 @@
 
 3. Install following Node.js packages
    
-   [ws](https://www.npmjs.com/package/ws)
-   [wscat](https://www.npmjs.com/package/wscat)
+-   [ws](https://www.npmjs.com/package/ws)
+
+-   [wscat](https://www.npmjs.com/package/wscat)
    
 
 ### IoT API
@@ -25,7 +26,9 @@ IoT API's programmable commands are defined in [Bitlash](http://bitlash.net/) fo
 
 IoT Application can open a WebSocket connection to following URL 
 
+```
 ws://devspace.hsenidmobile.com:9008/iot/connect?token=<your application's token>
+```
 
 Application will be authenticated by the token given in the URL (You can get the token from devspace application detail email).
  
@@ -41,20 +44,23 @@ Boot Message Format
 This message is sent by the device to application, when device starts.
 Purpose of this message is to identify the device and it's name. 
 
+```json
 { "id"        : "123",
   "type"      : "boot",
   "content"   : "Coffee Machine 001",
   "device"    : "tel:A#3B4wccSY6TuBsCHVWYI/wrqbrTr2W4FT4wto8C2c2fOrZ/WTjU1w3ND5asyKmWgLEQS",
   "timestamp" : 1429697258 }
+```  
   
 parameter descriptions
 
+```
 'id'       : tracking id of the message
 'type'     : boot type
 'content'  : name of the device
 'device'   : mobile number /masked mobile number of the device
 'timestamp': message received time at IoT API platform
- 
+``` 
 
 please note that, you have to use the received 'device' value to send a command back.
 
@@ -70,7 +76,9 @@ we want to get a notification when pin0 value goes to < 200
 
 Such a program can be written in Bitlash like following
 
+```c
 "while 1 {if(a0 < 200){print 'level=' a0;}; snooze(1000); };"
+```
 
 Here print function is used to collect the output and send back as notification message.
 If you don't need notifications, you can skip using the print function.
@@ -78,51 +86,60 @@ If you don't need notifications, you can skip using the print function.
 
 To load this program to our "Coffee Machine 001", we have to send command message like following
 
+```json
 { "id" : "123456",
   "type" : "command",
   "content" : "while 1 {if(a0 < 200){print 'level=' a0;}; snooze(1000); };",
   "device" : "tel:A#3B4wccSY6TuBsCHVWYI/wrqbrTr2W4FT4wto8C2c2fOrZ/WTjU1w3ND5asyKmWgLEQS" }
-
+```
 For more details, Please check [Bitlash Commands](https://github.com/billroy/bitlash/wiki/commands)
 
+```
 'id'       : tracking id of the message
 'type'     : command type
 'content'  : Bitlash program
 'device'   : mobile number /masked mobile number of the device
+```
 
 Status Message Format
 ----------------------
 This message is sent by device to application, when the command is loaded successfully in the device
 
+```json
 { "id": "123456",
   "type": "status",
   "content": "S1000",
-  "device" : "tel:A#3B4wccSY6TuBsCHVWYI/wrqbrTr2W4FT4wto8C2c2fOrZ/WTjU1w3ND5asyKmWgLEQS"
+  "device" : "tel:A#3B4wccSY6TuBsCHVWYI/wrqbrTr2W4FT4wto8C2c2fOrZ/WTjU1w3ND5asyKmWgLEQS",
   "timestamp" : 1429697258 }
+```
 
+```
 'id'       : id of the command
 'type'     : status type
 'content'  : status code of the command
 'device'   : mobile number /masked mobile number of the device
 'timestamp': message received time at IoT API platform
-
+```
 
 Notification Message Format
 ---------------------------
 This message is sent by device to application, when the program print it's output
 
+```json
 { "id": "123456",
   "type": "notification",
   "content": "level=160",
-  "device" : "tel:A#3B4wccSY6TuBsCHVWYI/wrqbrTr2W4FT4wto8C2c2fOrZ/WTjU1w3ND5asyKmWgLEQS"
+  "device" : "tel:A#3B4wccSY6TuBsCHVWYI/wrqbrTr2W4FT4wto8C2c2fOrZ/WTjU1w3ND5asyKmWgLEQS",
   "timestamp" : 1429697301 }
+```
 
+```
 'id'       : tracking id of the message
 'type'     : notification type
 'content'  : output of the command
 'device'   : mobile number /masked mobile number of the device
 'timestamp': message received time at IoT API platform
-
+```
 
 
 ### Sample Node.js Code
