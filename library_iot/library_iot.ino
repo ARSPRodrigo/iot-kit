@@ -15,7 +15,7 @@ char* command_request = "Cmd";
 char* register_request = "Reg:coffie machine 01";
 
 int loop_delay;
-int max_resp_len = 175;	                                       //maximum length of the USSD response
+int max_resp_len = 175;	                                       //       maximum length of the USSD response
 
 String received_command = "";
 
@@ -38,19 +38,19 @@ void setup() {
   set_loop_delay(); 
   register_device();
   Serial.println("End of registration");  
-  delay(10000);
+  delay(20000);
   poll_command(); 
   
-  demo_setup();
+  //demo_setup();
 }
 
 
 // the loop routine runs over and over again forever:
 void loop() {  
-  delay(1000); 
-  // demo();  
+  delay(500); 
+  demo();  
   
-  demo_loop();
+  //demo_loop();
 }
 
 void demo_setup(){
@@ -188,16 +188,10 @@ void send_ussd_response(char* x){
   ussd_response = x;
   ussd_acc.respond(ussd_response);  
 }
-//
-void end_ussd_session(){
-  ussd_acc.endSession();
-  Serial.println("Session terminated");
-}
-
 
 void execute_command(){
   
-  //received_command = "CmdL:print a0;";
+  received_command = "CmdL:print a0;";
   String extracted_command =getValue(received_command,':',0);
   Serial.println("Executing the command");
   Serial.println(extracted_command);
@@ -238,38 +232,6 @@ void extract_and_execute_instructions_new(String instruction){
       send_notification();
     }
 } 
-
-
-void periodic_check(int pin, String type){
-      Serial.println("periodic check");
-      int x = read_input_pin(pin,type);
-      String r1 = "NtfyL:" ;                     // r1 temporary string
-      r1.concat(String(pin));
-      r1.concat("=");
-      r1.concat(String(x));
-      
-      char charBuf[50];                           // charBuf temporary char buffer
-      r1.toCharArray(charBuf,50);
-      ussd_notification_data = charBuf;
-
-      Serial.println(ussd_notification_data);
-      send_notification();
-}
-
-void set_pins(String Pins, uint8_t Type){
-  int x = 0;
-  while (x!=-1){
-    String y = getValue(Pins,',',x);
-    if ( y!= ""){ 
-      x +=1;  
-      pinMode(y.toInt(), Type);
-    }
-    else{
-      x =-1;
-    }
-  }
-}
-
 
 int read_input_pin(int pin, String read_type){
   Serial.println("read function");
