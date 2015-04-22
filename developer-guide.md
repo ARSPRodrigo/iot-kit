@@ -3,16 +3,7 @@
 
 ### Prerequisites
 
-1. Setup IoT-Kit as mentioned in [README](https://github.com/hsenid-mobile/iot-kit/README.md)
-
-2. Install [Node.js](https://nodejs.org/download)
-
-3. Install following Node.js packages
-   
--   [ws](https://www.npmjs.com/package/ws)
-
--   [wscat](https://www.npmjs.com/package/wscat)
-   
+Setup IoT-Kit as mentioned in [README](https://github.com/hsenid-mobile/iot-kit/README.md)
 
 ### IoT API
 
