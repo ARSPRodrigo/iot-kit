@@ -6,7 +6,7 @@ Kit for hSenid Mobile Telco Application Platform's IOT API
 ### Prerequisites
 1. Arduino Board with GSM Sheild and SIM
 
-2. Create an USSD Application in hSenid Mobile TAP Platform (http://devspace.hsenidmobile.com/wp-login.php?action=register)
+2. Create an USSD Application in [hSenid Mobile TAP Platform](http://devspace.hsenidmobile.com/wp-login.php?action=register)
 
 3. Configure your USSD Application's MO Receiver URL to http://devspace.hsenidmobile.com/ussd-notifications
 
