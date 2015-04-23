@@ -30,7 +30,7 @@ by sending command messages and receive their output via notification messages.
 
 Following Message Types are defined in the API
 
-Boot Message Format
+#### Boot Message Format
 -------------------
 This message is sent by the device to application, when device starts.
 Purpose of this message is to identify the device and it's name. 
@@ -56,7 +56,7 @@ parameter descriptions
 please note that, you have to use the received 'device' value to send a command back.
 
 
-Command Message Format
+#### Command Message Format
 ----------------------
 This message is sent by application to device, when application wants to load a programmable command
 
@@ -92,7 +92,7 @@ For more details, Please check [Bitlash Commands](https://github.com/billroy/bit
 'device'   : mobile number /masked mobile number of the device
 ```
 
-Status Message Format
+#### Status Message Format
 ----------------------
 This message is sent by device to application, when the command is loaded successfully in the device
 
@@ -112,7 +112,7 @@ This message is sent by device to application, when the command is loaded succes
 'timestamp': message received time at IoT API platform
 ```
 
-Notification Message Format
+#### Notification Message Format
 ---------------------------
 This message is sent by device to application, when the program print it's output
 
