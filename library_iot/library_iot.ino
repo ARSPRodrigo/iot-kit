@@ -52,7 +52,7 @@ void serialHandler(byte b) {
       ussd_notification_data = charBuf;  
       return_data = "";
       if (notification_sent == 0){ 
-        Serial.println("preparing to send the notification");       
+        Serial.println("Preparing to send the notification");       
         send_notification();
         notification_sent =1;  
       }
@@ -164,7 +164,7 @@ void send_ussd_response(char* ussd_response){
 }
 
 void execute_command(){  
-  //received_command = "CmdL:pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000);";  // send_ussd(a0) //"CmdL:{pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;};}";
+                                                   //eg:received_command = "CmdL:pinMode(13, 1); dw(13,1);  if(a0< 200){print 'level='a0;}; snooze(2000);";  
   //perform the replacements:
   String temp_string = received_command;
   temp_string.replace("'", "\"");
@@ -183,7 +183,7 @@ void execute_command(){
 
 void extract_and_execute_instructions_new(String instruction){
   String temp1 = "function iot_function {";        
-  temp1.concat(instruction);                 // eg: "function iot_function {pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000); }"
+  temp1.concat(instruction);                      // eg: "function iot_function {pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000); }"
   temp1.concat("}");
   char charBuf[200];                              
   temp1.toCharArray(charBuf,200);
