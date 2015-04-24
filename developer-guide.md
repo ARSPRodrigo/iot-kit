@@ -25,7 +25,7 @@ IoT API's programmable commands are defined in [Bitlash](http://bitlash.net/) fo
 
 IoT Application can open a WebSocket connection to following URL 
 
-ws://devspace.hsenidmobile.com:9008/iot/connect?token=<your application's token>
+ws://api.hsenidmobile.com:9008/iot/connect?token=<your application's token>
 
 Application will be authenticated by the token given in the URL (You can get the token from devspace application detail email).
  
