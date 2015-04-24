@@ -44,7 +44,7 @@ void USSDAccess:: connectModule(){
 
   while(notConnected)
   {
-    Serial.println(F("Connecting to the network"));
+      Serial.println(F("Connecting to the network"));
 //    modemAccess.writeModemCommand("AT", comDelay);
 //    modemAccess.writeModemCommand("AT", comDelay);  
 //    modemAccess.writeModemCommand("AT", comDelay);

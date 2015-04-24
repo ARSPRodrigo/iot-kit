@@ -1,178 +1,153 @@
 #include <GSM.h>
+#include <bitlash.h>
 #include "USSDAccess.h"
 #include "configure.h"
 
+#if defined(ARDUINO) && ARDUINO >= 100
+  #include "Arduino.h"
+  #define serialPrintByte(b) Serial.write(b)
+#else
+  #define serialPrintByte(b) Serial.print(b,BYTE)
+#endif
+
+
 USSDAccess ussd_acc;
 
-char* ussd_code;		                               //	USSD Service code
-char* ussd_code_notification;                                  //	USSD Service code
+char* ussd_code;
 char* ussd_notification_data;
-char* ussd_reistration_data;
-char* ussd_response;
+char* command;
+char* register_request;
 
+char* saved = "saved";
 char* notify_request = "Ntfy";
 char* command_request = "Cmd";
-char* register_request = "Reg:coffie machine 01";
+char* stop_process = "{stop 0;}";
 
 int loop_delay;
-int max_resp_len = 175;	                                       //       maximum length of the USSD response
+int max_resp_len = 175;	                                       
+int exist_new_command = 1;
+int notification_sent = 0;
+int poll_timer = periodic_check_timer;
 
 String received_command = "";
+String return_data="";
 
 
-// for demo only
-int ldr = 0;                                                   //analog pin to which LDR is connected
-int ldr_value = 0;                                             //variable to store LDR values
-int ussd = 0;
+void set_bitlash_command(char* received_command){
+   command = received_command ;
+}
 
-int demo_pin;
-int demo_pin_value;
-int demo_ussd = 0;
-String demo_pin_type;
-// end of demo
+void run_bitlash_command(){ 
+    doCommand(command);
+}
 
+void serialHandler(byte b) { 
+  if (b == 13 ){
+    if (return_data.equals("saved")){
+      return_data = "";       
+    }
+    else {
+      char charBuf[200];                              
+      return_data.toCharArray(charBuf,200);
+      ussd_notification_data = charBuf;  
+      return_data = "";
+      if (notification_sent == 0){ 
+        Serial.println("preparing to send the notification");       
+        send_notification();
+        notification_sent =1;  
+      }
+    }   
+  }
+  else {
+    if (b == 10){
+      //
+    }
+    else{
+      return_data.concat((char)b);       
+    }  
+  }
+}
 
-// the setup routine runs once when you press reset:
 void setup() {  
-  Serial.begin(9600);
-  set_loop_delay(); 
+  initBitlash(9600);  
+  addBitlashFunction("run_bitlash_command", (bitlash_function) run_bitlash_command);
   register_device();
-  Serial.println("End of registration");  
-  delay(20000);
-  poll_command(); 
-  
-  //demo_setup();
+  setOutputHandler(&serialHandler);
 }
 
-
-// the loop routine runs over and over again forever:
-void loop() {  
-  delay(500); 
-  demo();  
+void loop() {
+  runBitlash();
   
-  //demo_loop();
-}
-
-void demo_setup(){
-  //received_command = "CmdL:print a0;";                                     //  CmdL:print d7; //  
-  String extracted_command =getValue(received_command,':',0);
-  if (extracted_command=="Cmd" || extracted_command=="CmdL") {
-      Serial.println("Command recieved");  
-      Serial.println(received_command);
-      String instruction = getValue(received_command,':',1);
-      String temp = instruction.substring(0, instruction.length() - 1);   
-      String current_command =  getValue(temp,';',0) ;
-      Serial.println(current_command);
-      String command_action = getValue(current_command,' ',0);
-      String command_pin = getValue(current_command,' ',1);
-      demo_pin = String(command_pin[1]).toInt();
-      demo_pin_type = (String)command_pin[0];
-  } 
-  
-}
-
-
-void demo_loop(){
-  if (demo_pin_type == "a")
-     demo_pin_value = analogRead(ldr);                
-  else if (demo_pin_type == "d")
-     demo_pin_value = digitalRead(ldr);                
-
-  Serial.println(ldr_value);
-  if ((demo_pin_type == "a" && demo_pin_value< 200) || (demo_pin_type == "d" && demo_pin_value== 1)){
-    if (demo_ussd ==0){
-      Serial.println("send ussd");
-      demo_ussd =1; 
-      String pin = "level=";
-      String x = "NtfyL:";
-      x.concat(pin);
-      String temp = String(demo_pin_value);               
-      x.concat(temp);
-      char charBuf[50];                              // charBuf temporary char buffer
-      x.toCharArray(charBuf,50);
-      ussd_notification_data = charBuf;     
-      Serial.println(ussd_notification_data);
-      send_notification();
+  if ( poll_timer >= periodic_check_timer) { 
+    poll_command(); 
+    poll_timer = 0;  
   }
-}
-else{
- demo_ussd = 0;
-}
-}
-
-void demo(){
-ldr_value = analogRead(ldr);
-Serial.println(ldr_value);
-if (ldr_value< 200){
-  if (ussd ==0){
-    Serial.println("send ussd");
-    ussd =1; 
-    String pin = "level=";
-    String x = "NtfyL:";
-    x.concat(pin);
-    String temp = String(ldr_value);      
-    x.concat(temp);
-    char charBuf[50];                                         
-    x.toCharArray(charBuf,50);
-    ussd_notification_data = charBuf;     
-    Serial.println(ussd_notification_data);
-    send_notification();
+  
+  if (exist_new_command==1){
+    execute_command();
+    exist_new_command = 0;
   }
-}
-else{
- ussd = 0;
-}
-
+  
+  poll_timer = poll_timer + main_loop_delay;
+  delay(main_loop_delay);
 }
 
-
-void set_loop_delay(){
-  loop_delay = main_loop_delay;
-}
 
 void register_device(){
-  start_ussd_session();                                      // not a notification therefore 0
+  start_ussd_session();                                      
   get_ussd_response();  
   if (received_command == "Cont") {
-    Serial.println("Sending register request");    
+    Serial.println("Sending register request"); 
+    String temp = "Reg:";  
+    temp.concat(registered_name);
+    char charBuf[200];                              
+    return_data.toCharArray(charBuf,200);
+    register_request = charBuf; 
     send_ussd_response(register_request);
     get_ussd_response();
     if (received_command == "Fin") {
-      Serial.println("End of the session");
-  }
- }  
+      Serial.println("End of the registration session");
+    }
+  }  
 }
 
-//
+
 void poll_command(){
   Serial.println("Polling..");
-  start_ussd_session();                                      // not a notification therefore 0
+  start_ussd_session();                                      
   get_ussd_response();    
   if (received_command == "Cont") {    
     send_ussd_response(command_request);
     get_ussd_response();
+    if (received_command == ""){
+      exist_new_command == 0;
+    }
+    else{
+      exist_new_command == 1;
+      notification_sent = 0;
+    }
   }  
 }
 
 void start_ussd_session(){
-    ussd_code = application_code;
-    Serial.println(ussd_code);
-    ussd_acc.initSession(ussd_code);
+  ussd_code = application_code; 
+  Serial.println(ussd_code);
+  ussd_acc.initSession(ussd_code);
 }
 
-//
+
 void send_notification(){  
   Serial.println("Sending a ussd response");
   Serial.println(ussd_notification_data);
-  start_ussd_session();                                        // a notification therefore 1
+  start_ussd_session();                                        
   get_ussd_response();  
-    if (received_command == "Cont") {   
-    Serial.println("Sending the notification request Ntfy");    
+  if (received_command == "Cont") {   
+    Serial.println("Sending the notification Ntfy");    
     send_ussd_response(ussd_notification_data);
-         get_ussd_response();           
-         if (received_command == "Fin") {
-           Serial.println("End of the session");
-         }
+    get_ussd_response();           
+    if (received_command == "Fin") {
+      Serial.println("End of the session");
+    }
   }
 }
 
@@ -183,71 +158,45 @@ void get_ussd_response(){
   Serial.println(resp);
   received_command = resp;  
 }
-//
-void send_ussd_response(char* x){
-  ussd_response = x;
+
+void send_ussd_response(char* ussd_response){
   ussd_acc.respond(ussd_response);  
 }
 
-void execute_command(){
+void execute_command(){  
+  //received_command = "CmdL:pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000);";  // send_ussd(a0) //"CmdL:{pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;};}";
+  //perform the replacements:
+  String temp_string = received_command;
+  temp_string.replace("'", "\"");
+  received_command = temp_string;
   
-  received_command = "CmdL:print a0;";
-  String extracted_command =getValue(received_command,':',0);
-  Serial.println("Executing the command");
-  Serial.println(extracted_command);
+  String extracted_command =getValue(received_command,':',0);   
   
   if (received_command=="Fin") {
-      Serial.println("No command received. Nothing to do.");
-     // do nothing
+    Serial.println("No command received. Nothing to do.");     
   }
   else if (extracted_command=="Cmd" || extracted_command=="CmdL") {
-      Serial.println(received_command);
-      Serial.println("Command recieved");  
-      extract_and_execute_instructions_new(getValue(received_command,':',1));
+    Serial.println("Command ready: " + getValue(received_command,':',1));  
+    extract_and_execute_instructions_new(getValue(received_command,':',1));     
   } 
 }
 
 void extract_and_execute_instructions_new(String instruction){
-    Serial.println("instructions");     
-    String temp = instruction.substring(0, instruction.length() - 1);   
-    String current_command =  getValue(temp,';',0) ;
-    Serial.println(current_command);
-    String command_action = getValue(current_command,' ',0);
-    String command_pin = getValue(current_command,' ',1);
+  String temp1 = "function iot_function {";        
+  temp1.concat(instruction);                 // eg: "function iot_function {pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000); }"
+  temp1.concat("}");
+  char charBuf[200];                              
+  temp1.toCharArray(charBuf,200);
+  char* bitlash_command = charBuf;
 
-    
-    if (command_action=="print"){
-      Serial.println("Read the sensor value: ");
-      int x = read_input_pin(String(command_pin[1]).toInt(),(String)command_pin[0]);
-      String r1 = "NtfyL:" ;                     // r1 temporary string
-      r1.concat(command_pin);
-      r1.concat("=");
-      r1.concat(String(x));
-      
-      char charBuf[50];                           // charBuf temporary char buffer
-      r1.toCharArray(charBuf,50);
-      ussd_notification_data = charBuf;
-
-      Serial.println(ussd_notification_data);
-      send_notification();
-    }
+  set_bitlash_command(stop_process);
+  set_bitlash_command(bitlash_command);
+  run_bitlash_command();
+  bitlash_command = "run iot_function;";
+  set_bitlash_command(bitlash_command);
+  run_bitlash_command();
+  Serial.println("Bitlash command running..");  
 } 
-
-int read_input_pin(int pin, String read_type){
-  Serial.println("read function");
-  if (read_type == "d")
-     return digitalRead(pin); 
-  else
-     return analogRead(pin);   
-}
-
-void write_output_pin(int pin, String write_type, int value){
-  Serial.println("write function");
-  if (write_type == "dw")
-     digitalWrite(pin, value); 
-  else
-     analogWrite(pin, value);   
-}
 
 
 String getValue(String data, char separator, int index)
@@ -258,14 +207,11 @@ String getValue(String data, char separator, int index)
 
   for(int i=0; i<=maxIndex && found<=index; i++){
     if(data.charAt(i)==separator || i==maxIndex){
-        found++;
-        strIndex[0] = strIndex[1]+1;
-        strIndex[1] = (i == maxIndex) ? i+1 : i;
+      found++;
+      strIndex[0] = strIndex[1]+1;
+      strIndex[1] = (i == maxIndex) ? i+1 : i;
     }
   }
   return found>index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
-
-
-
 
