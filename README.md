@@ -8,7 +8,7 @@ Kit for hSenid Mobile Telco Application Platform's IOT API
 
 2. Create an USSD Application in hSenid Mobile TAP Platform (http://devspace.hsenidmobile.com/wp-login.php?action=register)
 
-3. Configure your USSD Application's MO Receiver URL to http://devspace.hsenidmobile.com/ussd-notifications
+3. Configure your USSD Application's MO Receiver URL to http://api.hsenidmobile.com:9009/ussd-notifications
 
 4. Install [Arduino IDE](http://www.arduino.cc/en/main/software) in your computer
 
