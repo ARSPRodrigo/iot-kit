@@ -19,7 +19,7 @@ char* command;
 char* register_request;
 
 char* saved = "saved";
-char* notify_request = "Ntfy";
+char* notify_request = "NtfyL";
 char* command_request = "Cmd";
 char* stop_process = "{stop 0;}";
 
@@ -28,6 +28,9 @@ int max_resp_len = 175;
 int exist_new_command = 1;
 int notification_sent = 0;
 int poll_timer = periodic_check_timer;
+int is_registered = 0;
+
+bool toggle = false;
 
 String received_command = "";
 String return_data="";
@@ -41,7 +44,7 @@ void run_bitlash_command(){
     doCommand(command);
 }
 
-void serialHandler(byte b) { 
+void serialHandler(byte b) {
   if (b == 13 ){
     if (return_data.equals("saved")){
       return_data = "";       
@@ -50,12 +53,18 @@ void serialHandler(byte b) {
       char charBuf[200];                              
       return_data.toCharArray(charBuf,200);
       ussd_notification_data = charBuf;  
-      return_data = "";
-      if (notification_sent == 0){ 
+      if (return_data == "light is toggling"){ 
+        toggle = !toggle;
+        if(toggle) {
+          digitalWrite(7, 1);
+        } else {
+          digitalWrite(7, 0);
+        } 
         Serial.println("Preparing to send the notification");       
-        send_notification();
-        notification_sent =1;  
+        send_notification(); 
       }
+      
+      return_data = "";
     }   
   }
   else {
@@ -71,18 +80,14 @@ void serialHandler(byte b) {
 void setup() {  
   initBitlash(9600);  
   addBitlashFunction("run_bitlash_command", (bitlash_function) run_bitlash_command);
-  register_device();
   setOutputHandler(&serialHandler);
+  register_device();
+  pinMode(7, OUTPUT);
 }
 
 void loop() {
   runBitlash();
-  
-  if ( poll_timer >= periodic_check_timer) { 
-    poll_command(); 
-    poll_timer = 0;  
-  }
-  
+
   if (exist_new_command==1){
     execute_command();
     exist_new_command = 0;
@@ -97,16 +102,19 @@ void register_device(){
   start_ussd_session();                                      
   get_ussd_response();  
   if (received_command == "Cont") {
-    Serial.println("Sending register request"); 
+    Serial.println("Sending register request");
     String temp = "Reg:";  
     temp.concat(registered_name);
     char charBuf[200];                              
     return_data.toCharArray(charBuf,200);
     register_request = charBuf; 
     send_ussd_response(register_request);
+    
+    Serial.println("End of the registration session");
     get_ussd_response();
+    
     if (received_command == "Fin") {
-      Serial.println("End of the registration session");
+      is_registered = 1 ;
     }
   }  
 }
@@ -156,7 +164,9 @@ void get_ussd_response(){
   Serial.println("Receiving..");
   ussd_acc.getResponse(resp);
   Serial.println(resp);
-  received_command = resp;  
+  
+  received_command = getValue(resp, '\"',1);
+  Serial.println(received_command);
 }
 
 void send_ussd_response(char* ussd_response){
@@ -164,7 +174,7 @@ void send_ussd_response(char* ussd_response){
 }
 
 void execute_command(){  
-                                                   //eg:received_command = "CmdL:pinMode(13, 1); dw(13,1);  if(a0< 200){print 'level='a0;}; snooze(2000);";  
+  received_command = "CmdL:while 1 {if(!d13){print \"light is toggling\";}; snooze(100);};";  
   //perform the replacements:
   String temp_string = received_command;
   temp_string.replace("'", "\"");

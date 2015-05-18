@@ -18,7 +18,7 @@ uint8_t success = 4;					//Success response for AT command
 uint8_t length_extra_characters = 14;		//length of other characters required to build ATcommand
 
 unsigned long comDelay = 1000;       		//delay for communicating with shield
-unsigned long timeout = 6000;        		//Delay for reading a ussd reply
+unsigned long timeout = 3000;        		//Delay for reading a ussd reply
 unsigned long connectDelay = 1000;   		//Delay for getting connected to a GSM network
 
 char Atcommand_type[9] = "AT+CUSD="; 	//prototype ussd ATcommand
@@ -26,7 +26,7 @@ char enable_presentation = '1';			//enabling USSD presentation
 char cancel_session = '2';				//ending a USSD session
 
 GSM gsmAccess;
-GSM3ShieldV1DirectModemProvider modemAccess;
+GSM3ShieldV1DirectModemProvider modem;
 
 /*** constructor***/
 
@@ -37,26 +37,22 @@ USSDAccess :: USSDAccess() {
 
 void USSDAccess:: connectModule(){
   boolean notConnected = false;
-  if (gsmAccess.getStatus() != 3)
+  if (gsmAccess.getStatus() != GSM_READY)
   {
     notConnected = true;
   }
 
   while(notConnected)
   {
-      Serial.println(F("Connecting to the network"));
-//    modemAccess.writeModemCommand("AT", comDelay);
-//    modemAccess.writeModemCommand("AT", comDelay);  
-//    modemAccess.writeModemCommand("AT", comDelay);
+    Serial.println("Connecting to the network");
     if(gsmAccess.begin() == GSM_READY)
     {
       notConnected = false;
-      Serial.println(F("Connected")); 
-      
+      Serial.println("Connected");
     }
     else
     {
-      Serial.println(F("Not connected"));
+      Serial.println("Not connected");
       delay(connectDelay);
     }
   }
@@ -119,11 +115,11 @@ int USSDAccess :: sendATCommand(char ATcommand[]) {
 
   if(gsmAccess.getStatus() == if_connected)
   {
-    response = modemAccess.writeModemCommand(ATcommand,comDelay);
+    response = modem.writeModemCommand(ATcommand,comDelay);
   }
 
   else
-     Serial.println(F("GSM module not ready"));
+     Serial.println("GSM module not ready");
 
   if (response == "")
   {
@@ -238,32 +234,29 @@ char USSDAccess :: decoder(int character) {
 
 /***returns the response from the network***/
 
-void USSDAccess :: getResponse(char response[]) {
-  char resp[length_Resp];
+void USSDAccess :: getResponse(char resp[]) {
   char r;
 
   uint8_t i;
-  uint8_t j;
-  uint8_t first_index = 0;
-  uint8_t last_index = 0;
 
   unsigned long startTime;
-    
-  for(i = 0; i < length_Resp; i++)
-    resp[i] = '\0';
   
-  for(i = 0; i < length_Response; i++)
-    response[i] = '\0';
+    for(i = 0; i < 175; i++)
+    resp[i] = '\0';
+ 
     
   i = 0;
 
   startTime = millis();
-  
+
+  Serial.println("Start reading response");
+
   while(millis() - startTime <= timeout)
   {
-    while(modemAccess.available())
+
+    while(modem.available())
     {
-       r = decoder(modemAccess.read()); 
+       r = decoder(modem.read());
        if(r != '\0')
        {
           if(r != '\n' && r != '\r')
@@ -278,53 +271,7 @@ void USSDAccess :: getResponse(char response[]) {
           }
        }     
     }
-  } 
-
-  if(i >= bufferLen)
-  {
-    while(i <= ussdLen && (millis() - startTime <= 2 * timeout))
-    {
-        r = decoder(modemAccess.read());
-        if(r != '\0')
-	{
-           if(r != '\n' && r != '\r')
-	   {
-              resp[i] = r;
-              i++;  
-           }
-           else
-	   {
-              resp[i] = ' ';
-              i++;  
-           }
-        }
-         
-    }
   }
-
-  resp[i] = '\0';
-
-  for (j = 0; j < i; j++)
-  {
-    if (resp[j] == '"')
-    {
-      first_index = j;
-      break;
-    }   
-  }
-
-  for (j = 0; j < i; j++)
-  {
-    if (resp[j] == '"')
-    {
-      last_index = j;
-    }   
-  }
-
-  for (j = first_index + 1; j < last_index; j++)
-  {
-    response[j - first_index - 1] = resp[j];
-  }
-
-  response[j - first_index - 1] = '\0';
+  
+  resp;
 }
