@@ -52,18 +52,16 @@ void serialHandler(byte b) {
     else {
       char charBuf[200];                              
       return_data.toCharArray(charBuf,200);
-      ussd_notification_data = charBuf;  
-      if (return_data == "light is toggling"){ 
-        toggle = !toggle;
-        if(toggle) {
-          digitalWrite(7, 1);
-        } else {
-          digitalWrite(7, 0);
-        } 
-        Serial.println("Preparing to send the notification");       
-        send_notification(); 
-      }
-      
+      ussd_notification_data = charBuf;
+    //  toggle = !toggle;
+    //  if(toggle) {
+    //    digitalWrite(7, 1);
+    //  } else {
+    //    digitalWrite(7, 0);
+    //  }
+      Serial.println("Preparing to send the notification");
+      send_notification();
+
       return_data = "";
     }   
   }
