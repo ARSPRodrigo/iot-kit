@@ -98,74 +98,82 @@ void loop() {
   }
 
   if (client.connected()) {
-    write_message("Boot:DEVICE_1234");
-    
-    while (!client.available()){delay(1000);}
-    int length = client.read();
-    uint8_t read_buf[length];
-    int i =0;
-    Serial.println("reading the available response..");
-    
-    while (i< length)
-    {      
-       read_buf[i] = client.read();
-       i+=1;
-    }
-    for (int i = 0; i < sizeof(read_buf); i++) {
-       Serial.print((char)read_buf[i]);
-    }
-    Serial.println("");
+    if (is_registered == 0) {
+      String request = "Boot:DEVICE_1234 ";
+      Serial.println(request);
+      
+      write_message(request);
+      String response = read_message();
+      
+      Serial.println(response);
+      is_registered = 1;
+    } else {
+      
+      String request = "Poll ";
+      Serial.println(request);
+      
+      write_message(request);
+      
+      String response = read_message();
+      Serial.println(response);
+      
+      if (response == "Ok") {
+        Serial.println("No pending command");
+        delay(1000);
+      } else {
+        Serial.println("New command received");
+        extract_and_execute_instructions_new(response);
+      }  
+    }  
   }
 
   if (!client.connected()) {
     Serial.println("disconnecting.");
     client.stop();
+    is_registered = 0;
   }
 
 }
 
 String read_message(){
+   String data = "";
+  
     while (!client.available()){delay(1000);}
-    int length = client.read();
-    uint8_t read_buf[length];
+    
+    uint8_t len = client.read();
+    
+    char read_buf[len];
+    
     int i =0;
     Serial.println("reading the available response..");
     
-    while (i< length)
-    {      
-       read_buf[i] = client.read();
+    while (i < len) {      
+       data.concat((char)client.read());
        i+=1;
     }
-    for(int i = 0; i < sizeof(read_buf); i++) {
-       Serial.print((char)read_buf[i]);
-    }
-    Serial.println("");
-
+    
+   return data;
 }
 
 void write_message(String message){
-
-  char charBuf[message.length()];
-  Serial.println(message.length());
+  uint8_t len = message.length();
   
-  message.toCharArray(charBuf, message.length());
+  char charBuf[len];
   
-  uint8_t frame_length = message.length()+1;
+  message.toCharArray(charBuf, len);
+  
+  uint8_t frame_length = len +1;
 
   uint8_t write_buf[frame_length];
   
-  write_buf[0] = (uint8_t)message.length();
+  write_buf[0] = (uint8_t)len;
   
-  for (int j = 0; j < message.length(); j++) {
+  for (int j = 0; j < len; j++) {
     write_buf[j+1] = charBuf[j];
   }
-  
-  for (int i = 0; i < frame_length; i++) {
-       Serial.print((char)write_buf[i]);
-    }
      
-    client.write(write_buf);
-    client.flush();
+  client.write(write_buf, frame_length);
+  client.flush();
 }
 
 
@@ -206,9 +214,6 @@ int connectHttp() {
 
 void extract_and_execute_instructions_new(String instruction){
   if (instruction.substring(0,8) == "function") {
-    //String temp1 = "function iot_function {";        
-    //temp1.concat(instruction);                      // eg: "function iot_function {pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000); }"
-    //temp1.concat("}");
     char charBuf[200];                              
     instruction.toCharArray(charBuf,200);
     char* bitlash_command = charBuf;
@@ -223,32 +228,16 @@ void extract_and_execute_instructions_new(String instruction){
   }
   else { 
     Serial.println("Command is executing.."); 
-    char charBuf[200];                              
-    instruction.toCharArray(charBuf,200);
+    char charBuf[200];  
+    
+    String cmd =  getValue(instruction, ':', 1);
+    cmd.toCharArray(charBuf,200);
+    
     char* bitlash_command = charBuf;
     doCommand(bitlash_command);   
  
 } 
 }
-
-
-void execute_command(){  
-  //received_command = "CmdL:while 1 {if(!d13){print \"light is toggling\";}; snooze(100);};";  
-    received_command = "Cmd:function iot_function {pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000); }";  
-  // received_command = "CmdL:print d13;"; 
-  //perform the replacements:
-  String temp_string = received_command;
-  temp_string.replace("'", "\"");
-  received_command = temp_string;
-  
-  String extracted_command =getValue(received_command,':',0);   
-  if (extracted_command=="Cmd") {
-    Serial.println("Command ready: " + getValue(received_command,':',1));  
-    extract_and_execute_instructions_new(getValue(received_command,':',1));     
-  } 
-}
-
-
 
 
 String getValue(String data, char separator, int index)
