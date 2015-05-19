@@ -98,15 +98,8 @@ void loop() {
   }
 
   if (client.connected()) {
-    uint8_t buffer[]= "Boot:DEVICE_1234";
-    uint8_t write_buf[17];
-    write_buf[0] = 16;
-    for (int j = 0; j < sizeof(buffer); j++) {
-       write_buf[j+1] = buffer[j];
-     }
-     
-    client.write(write_buf);
-    client.flush();
+    write_message("Boot:DEVICE_1234");
+    
     while (!client.available()){delay(1000);}
     int length = client.read();
     uint8_t read_buf[length];
@@ -131,8 +124,50 @@ void loop() {
 
 }
 
+String read_message(){
+    while (!client.available()){delay(1000);}
+    int length = client.read();
+    uint8_t read_buf[length];
+    int i =0;
+    Serial.println("reading the available response..");
+    
+    while (i< length)
+    {      
+       read_buf[i] = client.read();
+       i+=1;
+    }
+    for(int i = 0; i < sizeof(read_buf); i++) {
+       Serial.print((char)read_buf[i]);
+    }
+    Serial.println("");
 
-uint8_t read_write()
+}
+
+void write_message(String message){
+
+  char charBuf[message.length()];
+  Serial.println(message.length());
+  
+  message.toCharArray(charBuf, message.length());
+  
+  uint8_t frame_length = message.length()+1;
+
+  uint8_t write_buf[frame_length];
+  
+  write_buf[0] = (uint8_t)message.length();
+  
+  for (int j = 0; j < message.length(); j++) {
+    write_buf[j+1] = charBuf[j];
+  }
+  
+  for (int i = 0; i < frame_length; i++) {
+       Serial.print((char)write_buf[i]);
+    }
+     
+    client.write(write_buf);
+    client.flush();
+}
+
 
 void setupIfGPRSNotReady(){
   Serial.println("Setting up GPRS");
