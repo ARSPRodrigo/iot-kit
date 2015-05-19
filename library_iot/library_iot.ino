@@ -173,37 +173,38 @@ void get_ussd_response(){
 
 
 
-void extract_and_execute_instructions_new(String action, String instruction){
-  if (action == "c"){
+void extract_and_execute_instructions_new(String instruction){
+  if (instruction.substring(0,8) == "function") {
+    //String temp1 = "function iot_function {";        
+    //temp1.concat(instruction);                      // eg: "function iot_function {pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000); }"
+    //temp1.concat("}");
+    char charBuf[200];                              
+    instruction.toCharArray(charBuf,200);
+    char* bitlash_command = charBuf;
+  
+    set_bitlash_command(stop_process);
+    set_bitlash_command(bitlash_command);
+    run_bitlash_command();
+    bitlash_command = "run iot_function;";
+    set_bitlash_command(bitlash_command);
+    run_bitlash_command();
+    Serial.println("Bitlash command running.."); 
+  }
+  else { 
     Serial.println("Command is executing.."); 
     char charBuf[200];                              
     instruction.toCharArray(charBuf,200);
     char* bitlash_command = charBuf;
-    doCommand(bitlash_command);
-  }
-  else if (action == "f"){ 
-  String temp1 = "function iot_function {";        
-  temp1.concat(instruction);                      // eg: "function iot_function {pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000); }"
-  temp1.concat("}");
-  char charBuf[200];                              
-  temp1.toCharArray(charBuf,200);
-  char* bitlash_command = charBuf;
-
-  set_bitlash_command(stop_process);
-  set_bitlash_command(bitlash_command);
-  run_bitlash_command();
-  bitlash_command = "run iot_function;";
-  set_bitlash_command(bitlash_command);
-  run_bitlash_command();
-  Serial.println("Bitlash command running..");  
+    doCommand(bitlash_command);   
+ 
 } 
 }
 
 
 void execute_command(){  
   //received_command = "CmdL:while 1 {if(!d13){print \"light is toggling\";}; snooze(100);};";  
-    received_command = "CmdL:f:while 1 {if(!d13){print \"light is toggling\";}; snooze(100);};";  
-  // received_command = "CmdL:c: print d13;;"; 
+    received_command = "CmdL:function iot_function {pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000); }";  
+  // received_command = "CmdL:print d13;"; 
   //perform the replacements:
   String temp_string = received_command;
   temp_string.replace("'", "\"");
@@ -216,7 +217,7 @@ void execute_command(){
   }
   else if (extracted_command=="Cmd" || extracted_command=="CmdL") {
     Serial.println("Command ready: " + getValue(received_command,':',1));  
-    extract_and_execute_instructions_new(getValue(received_command,':',0),getValue(received_command,':',1));     
+    extract_and_execute_instructions_new(getValue(received_command,':',1));     
   } 
 }
 
