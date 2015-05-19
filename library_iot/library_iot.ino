@@ -1,7 +1,23 @@
+/// gprs based configurations ///
+// libraries
 #include <GSM.h>
 #include <bitlash.h>
-#include "USSDAccess.h"
 #include "configure.h"
+// PIN Number
+#define PINNUMBER ""
+// APN Settings
+#define GPRS_APN       "dialogbb"
+#define GPRS_LOGIN     ""    
+#define GPRS_PASSWORD  ""
+
+GPRS gprs;
+GSM gsmAccess; 
+GSMClient client;
+
+char server[] = "api.hsenidmobile.com";
+int port = 9009;
+/// end of gprs based /// 
+
 
 #if defined(ARDUINO) && ARDUINO >= 100
   #include "Arduino.h"
@@ -10,10 +26,6 @@
   #define serialPrintByte(b) Serial.print(b,BYTE)
 #endif
 
-
-USSDAccess ussd_acc;
-
-char* ussd_code;
 char* ussd_notification_data;
 char* command;
 char* register_request;
@@ -29,8 +41,6 @@ int exist_new_command = 1;
 int notification_sent = 0;
 int poll_timer = periodic_check_timer;
 int is_registered = 0;
-
-bool toggle = false;
 
 String received_command = "";
 String return_data="";
@@ -53,14 +63,8 @@ void serialHandler(byte b) {
       char charBuf[200];                              
       return_data.toCharArray(charBuf,200);
       ussd_notification_data = charBuf;
-    //  toggle = !toggle;
-    //  if(toggle) {
-    //    digitalWrite(7, 1);
-    //  } else {
-    //    digitalWrite(7, 0);
-    //  }
       Serial.println("Preparing to send the notification");
-      send_notification();
+      //send_notification();
 
       return_data = "";
     }   
@@ -79,97 +83,89 @@ void setup() {
   initBitlash(9600);  
   addBitlashFunction("run_bitlash_command", (bitlash_function) run_bitlash_command);
   setOutputHandler(&serialHandler);
-  register_device();
-  //pinMode(7, OUTPUT);
+  Serial.println("Booting the Device");
+  setupIfGPRSNotReady();
+
 }
 
 void loop() {
   runBitlash();
-
-  if (exist_new_command==1){
-    execute_command();
-    exist_new_command = 0;
+  if (!client.connected()) {
+    if (!connectHttp()) {
+      setupIfGPRSNotReady();
+      return;
+    }  
   }
-  
-  poll_timer = poll_timer + main_loop_delay;
-  delay(main_loop_delay);
-}
 
-
-void register_device(){
-  start_ussd_session();                                      
-  get_ussd_response();  
-  if (received_command == "Cont") {
-    Serial.println("Sending register request");
-    String temp = "Reg:";  
-    temp.concat(registered_name);
-    char charBuf[200];                              
-    return_data.toCharArray(charBuf,200);
-    register_request = charBuf; 
-    send_ussd_response(register_request);
+  if (client.connected()) {
+    uint8_t buffer[]= "Boot:DEVICE_1234";
+    uint8_t write_buf[17];
+    write_buf[0] = 16;
+    for (int j = 0; j < sizeof(buffer); j++) {
+       write_buf[j+1] = buffer[j];
+     }
+     
+    client.write(write_buf);
+    client.flush();
+    while (!client.available()){delay(1000);}
+    int length = client.read();
+    uint8_t read_buf[length];
+    int i =0;
+    Serial.println("reading the available response..");
     
-    Serial.println("End of the registration session");
-    get_ussd_response();
-    
-    if (received_command == "Fin") {
-      is_registered = 1 ;
+    while (i< length)
+    {      
+       read_buf[i] = client.read();
+       i+=1;
     }
-  }  
+    for (int i = 0; i < sizeof(read_buf); i++) {
+       Serial.print((char)read_buf[i]);
+    }
+    Serial.println("");
+  }
+
+  if (!client.connected()) {
+    Serial.println("disconnecting.");
+    client.stop();
+  }
+
 }
 
 
-void poll_command(){
-  Serial.println("Polling..");
-  start_ussd_session();                                      
-  get_ussd_response();    
-  if (received_command == "Cont") {    
-    send_ussd_response(command_request);
-    get_ussd_response();
-    if (received_command == ""){
-      exist_new_command == 0;
-    }
-    else{
-      exist_new_command == 1;
-      notification_sent = 0;
-    }
-  }  
-}
+uint8_t read_write()
 
-void start_ussd_session(){
-  ussd_code = application_code; 
-  Serial.println(ussd_code);
-  ussd_acc.initSession(ussd_code);
-}
+void setupIfGPRSNotReady(){
+  Serial.println("Setting up GPRS");
+  // connection state
+  boolean notConnected = true;
 
-
-void send_notification(){  
-  Serial.println("Sending a ussd response");
-  Serial.println(ussd_notification_data);
-  start_ussd_session();                                        
-  get_ussd_response();  
-  if (received_command == "Cont") {   
-    Serial.println("Sending the notification Ntfy");    
-    send_ussd_response(ussd_notification_data);
-    get_ussd_response();           
-    if (received_command == "Fin") {
-      Serial.println("End of the session");
+  while(notConnected) {
+    if((gsmAccess.begin(PINNUMBER)==GSM_READY) &
+        (gprs.attachGPRS(GPRS_APN, GPRS_LOGIN, GPRS_PASSWORD)==GPRS_READY)) {
+      notConnected = false;
+      Serial.println("GPRS_READY");
+     } else {
+      Serial.println("GSM/GPRS NOT READY");
+      delay(1000);
     }
   }
 }
 
-void send_ussd_response(char* ussd_response){
-  ussd_acc.respond(ussd_response);  
-}
 
-void get_ussd_response(){
-  char resp[max_resp_len];
-  Serial.println("Receiving..");
-  ussd_acc.getResponse(resp);
-  Serial.println(resp);
-  
-  received_command = getValue(resp, '\"',1);
-  Serial.println(received_command);
-}
+
+int connectHttp() {
+  Serial.println("Connecting to IoT Gateway...");
+  int rs = client.connect(server, port);  
+  if (rs){
+    Serial.println("connected");
+  } else{
+    Serial.println("connection failed");
+  }
+  return rs;
+}  
+
+
+
 
 
 
@@ -203,7 +199,7 @@ void extract_and_execute_instructions_new(String instruction){
 
 void execute_command(){  
   //received_command = "CmdL:while 1 {if(!d13){print \"light is toggling\";}; snooze(100);};";  
-    received_command = "CmdL:function iot_function {pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000); }";  
+    received_command = "Cmd:function iot_function {pinMode(13, 1); dw(13,1);  if(a0< 200){print \"level=\"a0;}; snooze(2000); }";  
   // received_command = "CmdL:print d13;"; 
   //perform the replacements:
   String temp_string = received_command;
@@ -211,11 +207,7 @@ void execute_command(){
   received_command = temp_string;
   
   String extracted_command =getValue(received_command,':',0);   
-  
-  if (received_command=="Fin") {
-    Serial.println("No command received. Nothing to do.");     
-  }
-  else if (extracted_command=="Cmd" || extracted_command=="CmdL") {
+  if (extracted_command=="Cmd") {
     Serial.println("Command ready: " + getValue(received_command,':',1));  
     extract_and_execute_instructions_new(getValue(received_command,':',1));     
   } 
