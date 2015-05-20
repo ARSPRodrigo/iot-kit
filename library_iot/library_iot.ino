@@ -10,6 +10,7 @@
 #define GPRS_LOGIN     ""    
 #define GPRS_PASSWORD  ""
 
+
 GPRS gprs;
 GSM gsmAccess; 
 GSMClient client;
@@ -37,6 +38,8 @@ char* stop_process = "{stop 0;}";
 
 int loop_delay;
 int max_resp_len = 175;	                                       
+int max_notification_attempts = 3; 
+int notification_retry_count = 0;
 int exist_new_command = 1;
 int notification_sent = 0;
 int poll_timer = periodic_check_timer;
@@ -186,9 +189,14 @@ void send_notification(){
   String response = read_message();      
   Serial.println(response);
   if (response == "Ok"){
-    ussd_notification_data = "";    
+    ussd_notification_data = "";  
+    notification_retry_count = 0;  
   }
-  else if (response != "Ok" && retry_count<)
+  else if (response != "Ok" & notification_retry_count< max_notification_attempts){
+    delay(100);
+    send_notification();
+    notification_retry_count +=1;
+  }
 }
 
 void setupIfGPRSNotReady(){
