@@ -64,7 +64,7 @@ void serialHandler(byte b) {
       return_data.toCharArray(charBuf,200);
       ussd_notification_data = charBuf;
       Serial.println("Preparing to send the notification");
-      //send_notification();
+      send_notification();
 
       return_data = "";
     }   
@@ -176,6 +176,20 @@ void write_message(String message){
   client.flush();
 }
 
+
+void send_notification(){
+  String notification = "Ntfy:";
+  notification.concat(ussd_notification_data);
+  Serial.println(notification);
+   
+  write_message(notification);//
+  String response = read_message();      
+  Serial.println(response);
+  if (response == "Ok"){
+    ussd_notification_data = "";    
+  }
+  else if (response != "Ok" && retry_count<)
+}
 
 void setupIfGPRSNotReady(){
   Serial.println("Setting up GPRS");
