@@ -85,6 +85,10 @@ void serialHandler(byte b) {
 void setup() {  
   initBitlash(9600);  
   addBitlashFunction("run_bitlash_command", (bitlash_function) run_bitlash_command);
+  addBitlashFunction("switch_off", (bitlash_function) switch_off);
+  addBitlashFunction("switch_on", (bitlash_function) switch_on);
+  addBitlashFunction("switch_status", (bitlash_function) switch_status);
+  addBitlashFunction("switch_toggle", (bitlash_function) switch_toggle);
   setOutputHandler(&serialHandler);
   Serial.println("Booting the Device");
   setupIfGPRSNotReady();
@@ -125,7 +129,7 @@ void loop() {
         delay(1000);
       } else {
         Serial.println("New command received");
-        extract_and_execute_instructions_new(response);
+        execute_instructions(response);
       }  
     }  
   }
@@ -230,12 +234,8 @@ int connectHttp() {
 }  
 
 
-
-
-
-
-void extract_and_execute_instructions_new(String instruction){
-  if (instruction.substring(0,8) == "function") {
+void execute_instructions(String instruction){
+  if (instruction.substring(0,8) == "function") {                 // this means that the poll command was a background function
     char charBuf[200];                              
     instruction.toCharArray(charBuf,200);
     char* bitlash_command = charBuf;
@@ -250,16 +250,79 @@ void extract_and_execute_instructions_new(String instruction){
   }
   else { 
     Serial.println("Command is executing.."); 
-    char charBuf[200];  
-    
-    String cmd =  getValue(instruction, ':', 1);
-    cmd.toCharArray(charBuf,200);
-    
+    char charBuf[200];     
+    /*
+      this can be a direct command such as "d3=1" which will turn the digital pin to HIGH or 
+      this can be a query such as "print d3" which will return the value of the digital pin 3 through a seperate nitification or
+      this can be a predefined function call such as "turn_on_light 1" 
+    */
+    String cmd =  getValue(instruction, ':', 1);                 
+    cmd.toCharArray(charBuf,200);                               
     char* bitlash_command = charBuf;
     doCommand(bitlash_command);   
  
 } 
 }
+
+
+void switch_on(void){   
+  int pin =  getarg(1);  
+  Serial.print('N');                                                    // send the 01001111 pattern to initialte Off
+  delay(500);
+  Serial.print(pin);                                                    // 1 -> 00110001  or  2-> 00110010   or  all lights  0 -> 00110000 
+  delay(1000);
+}
+
+
+void switch_off(void){   
+  int pin =  getarg(1);  
+  Serial.print('O');                                                    // send the 01001111 pattern to initialte Off
+  delay(500);
+  Serial.print(pin);                                                    // 1 -> 00110001  or  2-> 00110010   or  all lights  0 -> 00110000 
+  delay(1000);
+}
+
+void switch_toggle(void){
+  int pin =  getarg(1);
+  Serial.print('T');                                                    // send the 01010100 pattern to initiate Toggle
+  delay(500);
+  Serial.print(pin);                                            // 1 -> 00110001  or  2-> 00110010   or  all lights  0 -> 00110000 
+  delay(1000);
+}
+
+int switch_status(void){
+  int pin =  getarg(1);
+  Serial.print('S');                                                    // send the 01010011 pattern to initiate Status read
+  delay(500);
+  Serial.print(pin);                                            // 1 -> 00110001  or  2-> 00110010   or  all lights  0 -> 00110000 
+  delay(500);
+  int incomingByte;                                                     // a variable to read incoming serial data into
+  if (Serial.available() > 0) {
+    incomingByte = Serial.read();
+  }
+  return incomingByte;
+}
+
+String analog_status(void){
+  int pin =  getarg(1);
+  Serial.print('S');                                                    // send the 01010011 pattern to initiate Status read
+  delay(500);
+  Serial.print(pin);                                              // 1 -> 00110001  or  2-> 00110010   or  all lights  0 -> 00110000 
+  delay(500);
+  
+  char str[4];
+  int i=0;
+  if (Serial.available()) {
+    delay(100); //allows all serial sent to be received together
+    while(Serial.available() && i<4) {                                // max 4 bytes. (since analog read will go up to 1023)
+      str[i++] = Serial.read();
+    }
+    str[i++]='\0';
+  }
+  
+  return str;
+}
+
 
 
 String getValue(String data, char separator, int index)
